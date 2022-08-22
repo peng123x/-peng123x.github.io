@@ -1,0 +1,457 @@
+<!DOCTYPE HTML>
+<!--
+	Phantom by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>反射模型</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+								<a href="index.html" class="logo">
+									<span class="symbol"><img src="images/logo1.jpg" alt="" /></span><span class="title">Blog</span>
+								</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="../../index.html">Home</a></li>
+							<li><a href="../allpages/Directx12/dx12.html">Directx12</a></li>
+							<li><a href="../allpages/Vulkan/vulkan.html">Vulkan</a></li>
+							<li><a href="../allpages/Opengl/opengl.html">Opengl</a></li>
+							<li><a href="../allpages/Cplusplus/cplusplus.html">C++</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+							<h1> Physically Based Rendering 反射模型</h1>
+							<span class="image main"><img src="https://1.bp.blogspot.com/-a-ldNl7dHWs/VsS377BiPxI/AAAAAAAADro/03dV1fLAtgM/s1600/Example.png" alt="" /></span>
+							<h1>反射模型</h1>
+<p>光线散射模型描述光在表面上的散射方式，什么方向进行折射和反射。光的反射用BRDF（bidirectional reflectance distribution function）函数描述，BTDF (bidirectional transmission distribution function) 描述表面上的透射，而BSDF (bidirectional scattering distribution function) 包含这俩种效果。</p>
+<p>以下的内容大部分整理自pbrt第八章 —— REFLECTION MODELS。
+表面反射模型来自多种来源：</p>
+<ul>
+<li>测量数据模型：通过真实世界的实验测量得到，这样的数据可以直接以表格形式使用或用于计算一组基本函数的系数。</li>
+<li>现象学模型：试图描述真实世界表面的定性特性的方程式在模仿它们方面非常有效。</li>
+<li>模拟：有时候表面组成的底层信息可以获取到，例如我们知道颜料由带颜色的附着于某些介质的粒子组成，每种粒子的反射特性我们可以知道。这种情况下我们可以模拟微观层面的光散射来模拟产生反射数据。这个过程既可以在渲染过程完成也可以作为预处理。</li>
+<li>物理（波）光学模型：将光当作波来看待，并计算麦克斯韦方程组的解。</li>
+<li>几何光学模型：如果已知表面的低水平散射和几何特性，反射模型可以直接从描述中构造出来。几何光学使建模光与表面的相互作用更容易处理。</li>
+</ul>
+<h2>基本术语</h2>
+<p>表面反射可以分成为四大类 :</p>
+<ul>
+<li>漫光反射（diffuse）: 光的所有反射方向的强度都是一样的, 虽然现实中不存在理想漫反射，但许多表面，如粗糙的黑板，无光泽的油漆，都近似漫反射。。</li>
+<li>光泽镜面反射（glossy specular）: 比如塑料或高光油漆，在某些方向会反射光，并且模糊的显示反射的物体。</li>
+<li>完美镜面反射（perfect specular）只有一个方向有反射光。镜子和玻璃很近似理想镜面反射。</li>
+<li>回归反射（retro-reflective）: 反射光会沿着入射光的相反方向射回来。比如天鹅绒，月球。</li>
+<li></li>
+</ul>
+<p>大部分真实表面都是这四种反射类型的混合。这几种反射的区别主要在于它们的反射波瓣分布，下图中的网格描述的范围。</p>
+<p><img src="https://cdn.jsdelivr.net/gh/ZeusYang/CDN-for-yangwc.com@1.1.35/blog/Scattering/1.png" alt="image"></p>
+<p>给定一类特定的反射，反射的分布函数还可以分成各向同性（isotropic）和各向异性（anisotropic）。大多数对象都是各向同性的：如果您选择表面上的一个点并在该点处绕其法线轴旋转，则反射光的分布不会改变。 相反，以这种方式旋转各向异性材料时，它们反射的光量不同。 各向异性表面的示例包括拉丝金属，许多类型的布和光盘。</p>
+<h2>几何设置</h2>
+<p>由于描述散射现象通常是特点于对象表面的点，因此我们的BRFD和BTDF计算基本上是在对象表面的局部坐标系(local coordinate system) 中进行的。这个局部坐标系我们称之为着色坐标系。该坐标系如下图所示，在该坐标系中，以切线(tangent)、副切线(subtangent)和法线向量(normal vectors)分别作为 x, y, 和z轴。</p>
+<p><img src="https://cdn.jsdelivr.net/gh/ZeusYang/CDN-for-yangwc.com@1.1.35/blog/Scattering/2.png" alt="image"></p>
+<p>所有BRDF和BTDF中的方向向量都是在这个坐标系中定义的。也可以用球面坐标（θ , φ）；θ表示给定的向量和z轴的角度，φ向量表示投影到xy平面后，和x轴的角度。给定在该坐标系的一个方向向量ω，可以很容易计算它和法线形成的角度的余弦值。在BRDF和BTDF函数中，用 wi表示入射方向向量，wo表示出射方向向量，默认均已经归一化为单位向量。</p>
+<p><img src="https://cdn.jsdelivr.net/gh/ZeusYang/CDN-for-yangwc.com@1.1.35/blog/Scattering/3.png" alt="ima22e"></p>
+<h2>基本接口</h2>
+<p>BRDFs和BTDFs共享一个通用的基类，BxDF。</p>
+<pre><code class="language-c++">class BxDF {
+public:
+//BxDF Interface
+    .....
+
+//BxDF Public Data
+const BxDFType tye;
+}; 
+</code></pre>
+<p>该接口中的type用于子类指明当前是反射还是透射，同时又属于哪类反射模型：</p>
+<pre><code class="language-c++">enum BxDFType {
+    BSDF_REFLECTION = 1 &lt;&lt; 0,
+    BSDF_TRANSMISSION = 1 &lt;&lt; 1,
+    BSDF_DIFFUSE = 1 &lt;&lt; 2,
+    BSDF_GLOSSY = 1 &lt;&lt; 3,
+    BSDF_SPECULAR = 1 &lt;&lt; 4,
+    BSDF_ALL = BSDF_DIFFUSE | BSDF_GLOSSY | BSDF_SPECULAR | BSDF_REFLECTION |
+               BSDF_TRANSMISSION,
+};
+
+//BxDF interface 
+BxDF(BxDFType type) : type(type) {}
+</code></pre>
+<p>BxDF提供的关键方法是 BxDF::f(), 它要求输入入射和反射方向，返回相应的BSDF函数值。</p>
+<pre><code class="language-c++">virtual Spectrum f(const Vector2f&amp; wo, const Vector2f&amp; wi) const = 0;
+</code></pre>
+<p>并非所有的BxFD可以使用f（）方法来进行评估。例如，像镜子，玻璃或水这样的完美镜面物体只能将光从单个入射方向散射到单个出射方向。
+因为此时它们的反射波瓣很窄，只占整个半球方向很小的一部分，我们根据向量的反射特性获取入射方向(除了单一的反射方向外，其他方向的光都为0，时的BRDF是一个狄拉克函数delta distributions)。为此，亦声明了如下的接口：</p>
+<pre><code class="language-c++">virtual Spectrum Sample_f(const Vector3f &amp;wo, Vector3f *wi,
+       const Point2f &amp;sample, Float *pdf,
+       BxDFType *sampledType = nullptr) const;
+</code></pre>
+<p>BxDF::Sample_f()是，调用方给定一个输出方向ωo，BxDF::Sample_f()会计算出一个输入方向wi(输入函数是wo，返回值是wi)。函数的其他参数我们暂时先忽略。用球面坐标（θ , φ）表示方向向量， BSDF函数本质是关于入射方向和散射方向的4D函数，在某些特殊情况下，我们可以简化会在单个方向上的2D函数。一种特殊情况就是半球-方向反射率（hemispherical-directional reflectance），由于在半球的常量照明(constant illumination)，即入射幅射率是一个常量函数，因此可以将反射方程中的入射辐射率（incident radiance）Li提取到半球积分外面，剩下的就是半球-方向反射率。对于给定的出射方向 wo， 可以直接计算入射辐照度该方向上的反射比率 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/%20%5Crho_%7Bhd%7D(%5Comega_o)%3D%5Cint_%7BH%5E2(n)%7D%20f_r(p%2C%5Comega_o%2C%20%5Comega_i)%7Ccos%5Ctheta_i%7Cd%5Comega_i%20%5Ctag%20" alt=" \rho_{hd}(\omega_o)=\int_{H^2(n)} f_r(p,\omega_o, \omega_i)|cos\theta_i|d\omega_i \tag " /></p>
+<p>上述的公式也可以被解读为: 由于来自给定方向的光会在半球上产生全反射(此时wo就变成了入射方向而非反射方向）。我们定义下面的rho函数接口用于计算半球-方向反射率，参数nSample和sample用于辅助计算公式的积分。</p>
+<pre><code class="language-c++">virtual Spectrum rho(const Vector3f &amp;wo, int nSamples,
+                     const Point2f *samples) const;
+                     
+</code></pre>
+<p>除了半球-方向反射率之外， 还有一种反射率叫做半球-半球反射率（hemispherical-hemispherical reflectance）。它计算的是一个光谱值，当所有方向的入射光辐射率都相同时，改值给出了表面反射的入射光值，再向整个半球射出去的照度比例(表面出射的总能量/表面接收ID总能量)。</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/%20%5Crho_%7Bhh%7D%3D%5Cfrac%7B1%7D%7B%5Cpi%7D%5Cint_%7BH%5E2(n)%7D%20%5Cint_%7BH%5E2(n)%7Df_r(p%2C%5Comega_o%2C%5Comega_i)%7Ccos%5Ctheta_o%20cos%5Ctheta_i%7C%20d%5Comega_o%20d%5Comega_i%20%5Ctag%20" alt=" \rho_{hh}=\frac{1}{\pi}\int_{H^2(n)} \int_{H^2(n)}f_r(p,\omega_o,\omega_i)|cos\theta_o cos\theta_i| d\omega_o d\omega_i \tag " /></p>
+<p>可以理解为再半球-方向反射率(hemispherical-directional reflectance)公式上消减出射方向的维度。为此，我们可以计算 <img src="https://i.upmath.me/svg/rho_%7Bhh%7D" alt="rho_{hh}" /> 公式在没有方向wo的情况下，因此，定义下面的接口用以计算公式 :</p>
+<pre><code class="language-c++">virtual Spectrum rho(int nSamples, const Point2f *samples1,
+                        const Point2f *samples2) const;
+</code></pre>
+<p>在此基础上，我们在创建ScaledBxDF类，它的本质就是将BxDF的函数返回值在乘上一个光谱值（RGB或者基于采样的光谱向量）。</p>
+<pre><code class="language-c++">class ScaleBxDF : public BxDF {
+public:
+      ScaledBxDF(BxDF *bxdf, const Spectrum &amp;scale) 
+          : BxDF(BxDFType(bxdf-&gt;type)), bxdf(bxdf), scale(scale) {
+       }
+      Spectrum rho(const Vector3f &amp;w, int nSamples, const Point2f *samples) const {
+          return scale * bxdf-&gt;rho(w, nSamples, samples); 
+      }
+      Spectrum rho(int nSamples, const Point2f *samples1,
+              const Point2f *samples2) const {
+          return scale * bxdf-&gt;rho(nSamples, samples1, samples2); 
+      }
+      Spectrum f(const Vector3f &amp;wo, const Vector3f &amp;wi) const{
+          return scale * bxdf-&gt;f(wo, wi);
+      }
+      Spectrum Sample_f(const Vector3f &amp;wo, Vector3f *wi, const Point2f &amp;sample,
+          Float *pdf, BxDFType *sampledType) const;
+
+private:
+   BxDF *bxdf;
+   Spectrum scale;
+}
+</code></pre>
+<h2>镜面反射和透射</h2>
+<p>使用物理和几何光学模型，在相对光滑的表面上的光特性相对容易分析。这些表面表现出完美的镜面反射和入射光透射率的行为。完美的镜面反射和透射非常特殊，给定一个入射方向 <img src="https://i.upmath.me/svg/w_i" alt="w_i" />,我们可以很容易地求出相应的完美镜面反射方向<img src="https://i.upmath.me/svg/w_o" alt="w_o" />，而透射方向的计算则稍微要麻烦一点。斯涅尔定律(Snell`s law)给出介质（medium）透射指数和透射角度的关系，透射指数述了特定介质中的光传播比真空中的传播慢得多。用<img src="https://i.upmath.me/svg/%5Ceta" alt="\eta" />标记：</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/%5Ceta_i%20sin%5Ctheta_i%20%3D%20%5Ceta_t%20sin%20%5Ctheta_t" alt="\eta_i sin\theta_i = \eta_t sin \theta_t" /></p>
+<p>通常，折射率随着光的波长而变化。因此，入射光通常在俩个不同的介质之间的边界沿多个方向进行散射，这种现象被称为色散现象（dispersion）。当入射的白光被棱镜（prism）分成光谱成分时，可以看到这种效果。计算机图形中的常见做法是忽略这种波长依赖性，因为这种效果通常对视觉准确性不是至关重要的，而忽略它会大大简化光传输计算。</p>
+<p>除了散射（scattering）方向的计算，我们还要计算光能的反射（reflection）比例和折射（refraction）比例，这通过菲涅尔方程联系起来。</p>
+<h2>菲涅耳反方程 Fresnel Reflectance</h2>
+<p>除了反射和透射的方向外，还必须要计算反射和透射的入射光的比例，而菲涅尔方程（Fresnel equations）描述了光照射到表面上的比例。给定折射系数（index of refraction）和入射光线与表面法线（normal）所成的角度，菲涅耳方程式指定了入射照明的两种不同<a href="https://www.jianshu.com/p/9027da93e2e7">偏振</a>态（polarization ）下材料的相应反射率，两种偏振状态分别是平行偏振光（parallel polarized light）和垂直偏振光（vertically polarized light.）。由于偏振的视觉效果在大多数环境中是有限的，因此在通常情况下，我们将假设光是非偏振的。因此菲涅耳反射率应该是俩种偏振状态的平均值。</p>
+<p>根据是否存在能够导电的自由电子，可以将物体的材质分成以下的三大类：</p>
+<ul>
+<li>绝缘体（dielectric）：此类材质不导电，其介质的折射指数均为实数值，会透射一定量的入射光，此类材质有玻璃、矿物油、水和空气等；</li>
+<li>导电体（conductor）：此类材质能够导电，因其具有自由移动的电子，此类材质不透明（一般透射进入内部的光被转换成了热能，厚度很薄的极端情况不考虑），仅发生反射。其介质的折射指数是复数值 <img src="https://i.upmath.me/svg/%5Coverline%20%5Ceta%3D%5Ceta%20%2B%20ik" alt="\overline \eta=\eta + ik" /></li>
+<li>半导体（semiconductor）：例如硅或锗都属于此类，在这里我们不考虑。</li>
+</ul>
+<p>导体和电介质都由同一组菲涅尔方程控制。尽管如此，我们还是希望为电介质创建一个特殊的评估函数，以受益于在保证折射率为实数时这些方程采用的特别简单的形式。为了方便起见，我们定义一个抽象的Fresnel类，该类提供了一个用于计算Fresnel反射系数的一个接口，Evaluate接口输入<img src="https://i.upmath.me/svg/%5Ccos%20%5Ctheta_i" alt="\cos \theta_i" />, 返回菲涅尔反射率（Fresnel Reflectance）。</p>
+<pre><code class="language-c++">class Fresnel 
+{
+public:
+  // Fresnel Interface
+    virtual ~Fresnel();
+    virtual Spectrum Evaluate(Float cosI) const = 0;
+};
+</code></pre>
+<p>下图列出了一些常见的绝缘体的折射系数：
+<img src="https://cdn.jsdelivr.net/gh/ZeusYang/CDN-for-yangwc.com@1.1.35/blog/Scattering/4.png" alt="fresnelTable"></p>
+<p>要计算俩种介电(dielectric)介质(media)界面处的菲涅耳反射率，我们需要知道俩种介电质的折射率。电介质(dielectric)的菲涅耳反射公式为 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/r_%7B%7C%7C%7D%3D%5Cfrac%7B%5Ceta_t%20cos%5Ctheta_i-%5Ceta_icos%5Ctheta_t%7D%7B%5Ceta_tcos%5Ctheta_i%2B%5Ceta_icos%5Ctheta_t%7D" alt="r_{||}=\frac{\eta_t cos\theta_i-\eta_icos\theta_t}{\eta_tcos\theta_i+\eta_icos\theta_t}" /></p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/r_%7B%5Cperp%7D%3D%5Cfrac%7B%5Ceta_i%20cos%5Ctheta_i-%5Ceta_tcos%5Ctheta_t%7D%7B%5Ceta_icos%5Ctheta_i%2B%5Ceta_tcos%5Ctheta_t%7D" alt="r_{\perp}=\frac{\eta_i cos\theta_i-\eta_tcos\theta_t}{\eta_icos\theta_i+\eta_tcos\theta_t}" /></p>
+<p>其中<img src="https://i.upmath.me/svg/r_%7B%7C%7C%7D" alt="r_{||}" /> 是平行偏振光(polarized light)的的菲涅耳反射率，<img src="https://i.upmath.me/svg/r_%7B%5Cperp%7D" alt="r_{\perp}" />是垂直偏振光的反射率。<img src="https://i.upmath.me/svg/%5Ceta_i" alt="\eta_i" />和<img src="https://i.upmath.me/svg/%5Ceta_t" alt="\eta_t" />是入射介质和透射介质的反射率，<img src="https://i.upmath.me/svg/%5Ctheta_i" alt="\theta_i" />和<img src="https://i.upmath.me/svg/%5Ctheta_t" alt="\theta_t" />分别是入射方向<img src="https://i.upmath.me/svg/%5Comega_i" alt="\omega_i" />和折射方向<img src="https://i.upmath.me/svg/%5Comega_t" alt="\omega_t" />与法线的夹角。</p>
+<p>对于非偏振光，菲涅尔反射率是两者的综合平均 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/F_r%3D%5Cfrac12(r_%7B%7C%7C%7D%5E2%2Br_%7B%5Cperp%7D%5E2)" alt="F_r=\frac12(r_{||}^2+r_{\perp}^2)" /></p>
+<p>因此，根据能量守恒定律，绝缘体的透射率为 <img src="https://i.upmath.me/svg/1%20-%20F_r" alt="1 - F_r" />。</p>
+<p>根据以上讨论，FrDielectric（）函数计算介电材料(dielectric materials)和非偏振光(unpolarized light)的菲涅耳反射公式。输入参数分别为<img src="https://i.upmath.me/svg/%5Ceta_i" alt="\eta_i" />、<img src="https://i.upmath.me/svg/%5Ceta_t" alt="\eta_t" />和<img src="https://i.upmath.me/svg/cos%5Ctheta_i" alt="cos\theta_i" />，返回绝缘体的反射率 :</p>
+<pre><code class="language-c++">Float frDielectric(Float cosThetaI, Float etaI, Float etaT) {
+    cosThetaI = clamp(cosThetaI, -1, 1);
+
+    bool entering = cosThetaI &gt; 0.f;
+    // 如果如果入射角大于90° 
+    // 则法线方向反了，cosThetaI取绝对值，对换两个折射率
+    if (!entering) {
+        std::swap(etaI, cosThetaI);
+    }
+
+    // 用斯涅耳定律计算sinThetaI
+    Float sinThetaI = std::sqrt(std::max((Float)0, 1 - cosThetaI * cosThetaI));
+    Float sinThetaT = etaI / etaT * sinThetaI;
+
+    // 全内部反射情况 Handle total internal reflection
+    if (sinThetaT &gt;= 1) {
+        return 1;
+    }
+    Float cosThetaT = std::sqrt(std::max((Float)0, 1 - sinThetaT * sinThetaT));
+    Float Rparl = ((etaT * cosThetaI) - (etaI * cosThetaT))
+        / ((etaT * cosThetaI) + (etaI * cosThetaT));
+    Float Rperp = ((etaI * cosThetaI) - (etaT * cosThetaT))
+        / ((etaI * cosThetaI) + (etaT * cosThetaT));
+    return (Rparl * Rparl + Rperp * Rperp) / 2;
+}
+};
+</code></pre>
+<p>为了找到透视角的余弦cosThetaT，先要判断入射方向的介质是在外边还是在介质的内部，以便可以正确地解释两个折射率。在计算前我们可以根据<img src="https://i.upmath.me/svg/cos%5Ctheta_i" alt="cos\theta_i" /> 的符号判断入射光在那一面的介质。如果余弦在0到1之间，则射线在外侧；如果余弦在-1和0之间，则射线在内侧。如果是由内部向外透射，则应该交换一下折射系数。此外，还需要考虑全面反射的情况，根据Snell定律计算出来的<img src="https://i.upmath.me/svg/sin%5Ctheta_t" alt="sin\theta_t" />是否大于等于1来进行判断，如果大于1，则返回1.0的反射率（即全部反射了）。因此，绝缘体Fresnel类实现如下，直接调用frDielectric函数:</p>
+<pre><code class="language-c++">class FresnelDielectric : public Fresnel{
+public :
+    FresnelDielectric(Float etaI, Float etaT) : etaI(etaI), etaT(etaT) {}
+
+    virtual Spectrum evaluate(Float cosThetaI){
+        return frDielectric(cosThetaI, etaI,etaT);
+    }
+    virtual std::string toString() const {
+        return StringPrintf(&quot;[ FrenselDielectric etaI: %f etaT: %f ]&quot;, _etaI, _etaT);
+    }
+
+private:
+    Float etaI, etaT;
+};
+</code></pre>
+<p>接着要考虑到电体的介质的反射率。导电体的折射指数(indices of refraction)为复数值<img src="https://i.upmath.me/svg/%5Coverline%20%5Ceta%3D%5Ceta%2Bik" alt="\overline \eta=\eta+ik" />。有时候光会被材质吸收并转化成热能，虚数部分<img src="https://i.upmath.me/svg/k" alt="k" />被称为吸收系数（absorption coefficient)。导体和电介质之间的边界处的菲涅耳反射率由下式给出：</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/r_%5Cperp%3D%5Cfrac%7Ba%5E2%2Bb%5E2-2a%20cos%5Ctheta%20%2B%20cos%5E2%5Ctheta%7D%7Ba%5E2%2Bb%5E2%2B2acos%5Ctheta%2Bcos%5E2%5Ctheta%7D" alt="r_\perp=\frac{a^2+b^2-2a cos\theta + cos^2\theta}{a^2+b^2+2acos\theta+cos^2\theta}" /></p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/r_%7B%7C%7C%7D%3Dr_%7B%5Cperp%7D%5Cfrac%7Bcos%5E2%5Ctheta(a%5E2%2Bb%5E2)-2acos%5Ctheta%20sin%5E2%5Ctheta%20%2B%20sin%5E4%5Ctheta%7D%7Bcos%5E2%5Ctheta(a%5E2%2Bb%5E2)%2B2acos%5Ctheta%20sin%5E2%5Ctheta%2Bsin%5E4%5Ctheta%7D" alt="r_{||}=r_{\perp}\frac{cos^2\theta(a^2+b^2)-2acos\theta sin^2\theta + sin^4\theta}{cos^2\theta(a^2+b^2)+2acos\theta sin^2\theta+sin^4\theta}" /></p>
+<p>其中 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/%20a%5E2%2Bb%5E2%20%3D%5Csqrt%7B(%5Ceta%5E2-k%5E2-sin%5E2%5Ctheta)%5E2%2B4%5Ceta%5E2k%5E2%7D" alt=" a^2+b^2 =\sqrt{(\eta^2-k^2-sin^2\theta)^2+4\eta^2k^2}" /></p>
+<p>而上式中的<img src="https://i.upmath.me/svg/%5Ceta%2Bik%3D%5Coverline%20%5Ceta_t%2F%5Coverline%20%5Ceta_i" alt="\eta+ik=\overline \eta_t/\overline \eta_i" />是虚数部分计算后的相对折射系数。由此实现导电体的frConductor，输入<img src="https://i.upmath.me/svg/cos%5Ctheta_i" alt="cos\theta_i" />、<img src="https://i.upmath.me/svg/%5Coverline%5Ceta_i" alt="\overline\eta_i" />、<img src="https://i.upmath.me/svg/%5Coverline%20%5Ceta_t%20%3D%20%5Ceta_t%2Bik" alt="\overline \eta_t = \eta_t+ik" />,返回导电体的菲涅尔反射率。入射介质折射率是一个光谱值，因为导体的折射与长波有关 :</p>
+<pre><code class="language-c++">Spectrum frConductor(Float cosThetaI, const Spectrum&amp; etaI,
+    const Spectrum&amp; etaT, const Spectrum&amp; kt)
+{
+    cosThetaI = clamp(cosThetaI, -1, 1);
+    Spectrum eta = etat / etai;
+    Spectrum etak = kt / etai;
+    
+    Float cosThetaI2 = cosThetaI * cosThetaI;
+    Float sinThetaI2 = 1. - cosThetaI2;
+    Spectrum eta2 = eta * eta;
+    Spectrum etak2 = etak * etak;
+    
+    Spectrum t0 = eta2 - etak2 - sinThetaI2;
+    Spectrum a2plusb2 = Sqrt(t0 * t0 + 4 * eta2 * etak2);
+    Spectrum t1 = a2plusb2 + cosThetaI2;
+    Spectrum a = Sqrt(0.5f * (a2plusb2 + t0));
+    Spectrum t2 = (Float)2 * cosThetaI * a;
+    Spectrum Rs = (t1 - t2) / (t1 + t2);
+    
+    Spectrum t3 = cosThetaI2 * a2plusb2 + sinThetaI2 * sinThetaI2;
+    Spectrum t4 = t2 * sinThetaI2;
+    Spectrum Rp = Rs * (t3 - t4) / (t3 + t4);
+    
+    return 0.5 * (Rp + Rs);
+}
+</code></pre>
+<p>因此，导电体的菲涅尔反射类FresnelConductor实现如下 :</p>
+<pre><code class="language-c++">class FresnelConductor : public Fresnel {
+
+public:
+     FresnelConductor(const Spectrum&amp; etaI, const Spectrum&amp; etaT,
+        const Spectrum&amp; kt)
+        : _etaI(etaI), _etaT(etaT), _kt(kt) {}
+
+     virtual Spectrum evaluate(Float cosThetaI) const {
+        return frConductor(std::abs(cosThetaI), _etaI, _etaT, _kt);
+    }
+
+     virtual std::string toString() const {
+        return std::string(&quot;[ FresnelConductor etaI: &quot;) + _etaI.ToString() +
+            std::string(&quot; etaT: &quot;) + _etaT.ToString() + std::string(&quot; k: &quot;) +
+            _kt.ToString() + std::string(&quot; ]&quot;);
+    }
+
+private:
+    Spectrum _etaI, _etaT, _kt;
+};
+</code></pre>
+<h2>完美镜面反射</h2>
+<p>我们可以使用菲涅耳接口来计算反射的光的比例，从而实现描述完美镜面反射的SpecularReflection类。给定辐射率<img src="https://i.upmath.me/svg/L_i(%5Comega_i)" alt="L_i(\omega_i)" />，由于菲涅耳方程式给出了反光的比例，因此我们需要寻找一个完美镜面反射BRFD（双向反射分布函数）函数 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/L_o(%5Comega_o)%3D%5Cint%20f_r(%5Comega_o%2C%20%5Comega_i)%20L_i(%5Comega_i)%7Ccos%5Ctheta_i%7Cd%5Comega_i%0A%3DF_r(%5Comega_r)L_i(%5Comega_r)" alt="L_o(\omega_o)=\int f_r(\omega_o, \omega_i) L_i(\omega_i)|cos\theta_i|d\omega_i
+=F_r(\omega_r)L_i(\omega_r)" /></p>
+<p>其中 <img src="https://i.upmath.me/svg/%5Comega_r" alt="\omega_r" /> 是 <img src="https://i.upmath.me/svg/%5Comega_o" alt="\omega_o" /> 表面线法（surface normal）的反射向量（reflected vector）。上式的意思是，给定出射的方向 <img src="https://i.upmath.me/svg/%5Comega_o" alt="\omega_o" />，反射方程计算的结果应当是 <img src="https://i.upmath.me/svg/%5Comega_o" alt="\omega_o" /> 的反射向量<img src="https://i.upmath.me/svg/%5Comega_r" alt="\omega_r" />方向上入射进来的辐射率 <img src="https://i.upmath.me/svg/L_i(%5Comega_i)" alt="L_i(\omega_i)" /> 在乘上菲涅尔反射率。可以使用Dirac delta分布构造此类BRDF，<img src="https://i.upmath.me/svg/%5Comega_r" alt="\omega_r" /> 方向取值不为零。
+这里说的狄拉克函数就是采样理论的冲激函数<img src="https://i.upmath.me/svg/%5Cdelta%20(x_0)" alt="\delta (x_0)" />，<img src="https://i.upmath.me/svg/%5Cdelta(x_0)" alt="\delta(x_0)" /> 仅在<img src="https://i.upmath.me/svg/x%3Dx_0" alt="x=x_0" />上取值不为零，而且具备取样特性 <img src="https://i.upmath.me/svg/%5Cint%20f(x)%5Cdelta(x-x_0)dx%3Df(x_0)" alt="\int f(x)\delta(x-x_0)dx=f(x_0)" />。经过一些简单的推导，可得完美镜面反射的BRDF函数如下 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/f_r(p%2C%5Comega_o%2C%5Comega_i)%3DF_r(%5Comega_r)%5Cfrac%7B%5Cdelta(%5Comega_i-%5Comega_r)%7D%7B%7Ccos%5Ctheta_r%7C%7D%20" alt="f_r(p,\omega_o,\omega_i)=F_r(\omega_r)\frac{\delta(\omega_i-\omega_r)}{|cos\theta_r|} " /></p>
+<p>由此，可以实现镜面反射的BRDF类：</p>
+<pre><code class="language-c++">class SpecularReflection : public BxDF {
+public:
+     SpecularReflection(const Spectrum &amp;R, Fresnel *fresnel) 
+           : BxDF(BxDFType(BSDF_REFLECTION | BSDF_SPECULAR)), R(R),
+             fresnel(fresnel) { }
+     Spectrum f(const Vector3f &amp;wo, const Vector3f &amp;wi) const { 
+           return Spectrum(0.f); 
+       }
+     Spectrum Sample_f(const Vector3f &amp;wo, Vector3f *wi, const Point2f &amp;sample,
+                         Float *pdf, BxDFType *sampledType) const;
+       Float Pdf(const Vector3f &amp;wo, const Vector3f &amp;wi) const { return 0; }
+
+private:
+    constSpectrum R;
+    const Fresnel *fresnel
+};
+</code></pre>
+<p>因为镜面反射是一个狄拉克函数，仅此我们只需要Sample_f来计算BRDF值。</p>
+<pre><code class="language-c++">Spectrum SpecularReflection::Sample_f(const Vector3f &amp;wo, Vector3f *wi,
+                                      const Point2f &amp;sample, Float *pdf,
+                                      BxDFType *sampledType) const 
+{
+    *wi = Vector3f(-wo.x, -wo.y, wo.z);
+    *pdf = 1;
+    return fresnel-&gt;Evaluate(CosTheta(*wi)) * R / AbsCosTheta(*wi);
+}
+</code></pre>
+<p>其余的实现很简单。从SpecularReflection :: f（）不会返回任何散射，因为对于任意一对方向，增量函数都不会返回任何散射。</p>
+<h2>完美镜面透射</h2>
+<p>斯涅尔定律为透射射线提供了方向，还可以表明随着射线在拥有不同折射率的介质直接传播，沿着光线的辐射率发生变化。给定折射的方向<img src="https://i.upmath.me/svg/%5Comega_o" alt="\omega_o" /> 和入射的方向 <img src="https://i.upmath.me/svg/%5Comega_i" alt="\omega_i" />， 描述折射光的能量占据入射光的能量分布的函数就是BTDF。我们使用 <img src="https://i.upmath.me/svg/%5Ctau" alt="\tau" /> 来表示菲涅尔方程式所给出的入射能量传到输出能量的比例，所以<img src="https://i.upmath.me/svg/%5Ctau%20%3D%201-F_r(%5Comega_i)" alt="\tau = 1-F_r(\omega_i)" />。透射的辐射功率为<img src="https://i.upmath.me/svg/d%5CPhi_o%3D%5Ctau%20d%5CPhi_i" alt="d\Phi_o=\tau d\Phi_i" />，根据辐射的定义，我们有 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/L_ocos%5Ctheta_o%20dA%20d%5Comega_o%20%3D%20%5Ctau(L_i%20cos%5Ctheta_i%20dA%20d%5Comega_i)" alt="L_ocos\theta_o dA d\omega_o = \tau(L_i cos\theta_i dA d\omega_i)" /></p>
+<p>将立体角<img src="https://i.upmath.me/svg/%5Comega" alt="\omega" />转化到球面坐标<img src="https://i.upmath.me/svg/(%5Ctheta%2C%5Cphi)" alt="(\theta,\phi)" />表示，上述公式可写成:</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/L_o%20cos%5Ctheta_o%20dA%20sin%5Ctheta_o%20d%5Ctheta_o%20d%5Cphi_o%20%3D%20%5Ctau(L_i%20cos%5Ctheta_i%20dA%20sin%5Ctheta_i%20d%5Ctheta_i%20d%5Cphi_i)" alt="L_o cos\theta_o dA sin\theta_o d\theta_o d\phi_o = \tau(L_i cos\theta_i dA sin\theta_i d\theta_i d\phi_i)" /></p>
+<p>然后对Snell定律即<img src="https://i.upmath.me/svg/%5Ceta_i%20sin%5Ctheta_i%20%3D%20%5Ceta_o%20sin%20%5Ctheta_o" alt="\eta_i sin\theta_i = \eta_o sin \theta_o" />得两边求关于<img src="https://i.upmath.me/svg/%5Ctheta" alt="\theta" />的微分：</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/%5Ceta_o%20cos%5Ctheta_o%20d%5Ctheta_o%20%3D%20%5Ceta_i%20cos%5Ctheta_i%20d%5Ctheta_i%20%0A%5Cto%20%5Cfrac%7Bcos%5Ctheta_o%20d%5Ctheta_o%7D%7Bcos%5Ctheta_i%20d%5Ctheta_i%7D%3D%5Cfrac%7B%5Ceta_i%7D%7B%5Ceta_o%7D" alt="\eta_o cos\theta_o d\theta_o = \eta_i cos\theta_i d\theta_i 
+\to \frac{cos\theta_o d\theta_o}{cos\theta_i d\theta_i}=\frac{\eta_i}{\eta_o}" /></p>
+<p>联立上面的公式和Snell定律， 可得</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/L_o%20%5Ceta_i%5E2%20d%5Cphi_o%20%3D%20%5Ctau%20L_i%20%5Ceta_o%5E2%20d%5Cphi_i" alt="L_o \eta_i^2 d\phi_o = \tau L_i \eta_o^2 d\phi_i" /></p>
+<p>又因为<img src="https://i.upmath.me/svg/%5Cphi_i%3D%5Cphi_o%2B%5Cpi%24%EF%BC%8C%E6%95%85%24d%5Cphi_i%3Dd%5Cphi_o" alt="\phi_i=\phi_o+\pi$，故$d\phi_i=d\phi_o" />，可最终简化为：</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/L_o%3D%5Ctau%20L_i%20%5Cfrac%7B%5Ceta_o%5E2%7D%7B%5Ceta_i%5E2%7D" alt="L_o=\tau L_i \frac{\eta_o^2}{\eta_i^2}" /></p>
+<p>与完美镜面的反射BRDF一样，BTDF可以得到类似的狄拉克函数形式 :</p>
+<p align="center"><img align="center" src="https://i.upmath.me/svg/f_t(%5Comega_o%2C%5Comega_i)%3D%5Cfrac%7B%5Ceta_o%5E2%7D%7B%5Ceta_i%5E2%7D(1-F_r(%5Comega_i))%5Cfrac%7B%5Cdelta(%5Comega_i-T(%5Comega_o%2Cn))%7D%7B%7Ccos%5Ctheta_i%7C%7D" alt="f_t(\omega_o,\omega_i)=\frac{\eta_o^2}{\eta_i^2}(1-F_r(\omega_i))\frac{\delta(\omega_i-T(\omega_o,n))}{|cos\theta_i|}" /></p>
+<p>其中镜面透射的向量<img src="https://i.upmath.me/svg/T(%5Comega_o%2Cn)" alt="T(\omega_o,n)" />是通过表面线法<img src="https://i.upmath.me/svg/n" alt="n" />的界面的镜面透射<img src="https://i.upmath.me/svg/%5Comega_o" alt="\omega_o" />产生的。<img src="https://i.upmath.me/svg/1-F_r(%5Comega_i)" alt="1-F_r(\omega_i)" />在该方程对应一个容易观察到的效果，在垂直的角度下，透射率更高。</p>
+<p>SpecularTransmission类与SpecularReflection几乎完全相同，只是采样方向是完美镜面透射的方向。SpecularTransmission只考虑了绝缘体的透射，因此需要借用绝缘体的菲涅尔函数FresnelDielectric函数,etaA和etaA分别保存了当前介质的外部和内部的折射指数。</p>
+<pre><code class="language-c++">class SpecularTransmission : public BxDF
+{
+public:
+    SpecularTransmission(const Spectrum&amp; T, Float etaA, Float etaB,
+        TransportMode mode)
+        :BxDF(BxDFType(BSDF_TRANSMISSION | BSDF_SPECULAR)),
+          T(T),
+          etaA(etaA),
+          etaB(etaB),
+          fresnel(etaA, etaB),
+          mode(mode) {}
+     Spectrum f(const Vector3f &amp;wo, const Vector3f &amp;wi) const {
+        return Spectrum(0.f);
+    }
+    Spectrum Sample_f(const Vector3f &amp;wo, Vector3f *wi, const Point2f &amp;sample,
+                      Float *pdf, BxDFType *sampledType) const;
+    Float Pdf(const Vector3f &amp;wo, const Vector3f &amp;wi) const { return 0; }
+private:
+    const Spectrum T;
+    const Float etaA, etaB;
+    const FresnelDielectric fresnel;
+    const TransportMode mode;
+};
+</code></pre>
+<p>Sample_f的实现基本上对应的就是前面的公式,需要注意是否发生全面反射以及判断是从里向外透射还是从外向里透射，下面中的Refract用于计算折射向量</p>
+<pre><code class="language-c++">Spectrum SpecularTransmission::Sample_f(const Vector3f &amp;wo, Vector3f *wi,
+                                        const Point2f &amp;sample, Float *pdf,
+                                        BxDFType *sampledType) const {
+    // Figure out which $\eta$ is incident and which is transmitted
+    bool entering = CosTheta(wo) &gt; 0;
+    Float etaI = entering ? etaA : etaB;
+    Float etaT = entering ? etaB : etaA;
+
+    // Compute ray direction for specular transmission
+    if (!Refract(wo, Faceforward(Normal3f(0, 0, 1), wo), etaI / etaT, wi))
+        return 0;
+    *pdf = 1;
+    Spectrum ft = T * (Spectrum(1.) - fresnel.Evaluate(CosTheta(*wi)));
+    // Account for non-symmetry with transmission to different medium
+    if (mode == TransportMode::Radiance) ft *= (etaI * etaI) / (etaT * etaT);
+    return ft / AbsCosTheta(*wi);
+}
+</code></pre>
+<h2>综合反射与透射</h2>
+<p>上面讨论的是仅发生完美镜面反射或仅发生完美镜面透射的情况，但现实中更多的是两者的综合作用，发生透射和发生反射的比例通过菲涅尔方程联系起来,<img src="https://i.upmath.me/svg/F_r(%5Comega_i)" alt="F_r(\omega_i)" />是反射率，则<img src="https://i.upmath.me/svg/1-F_r(%5Comega_i)" alt="1-F_r(\omega_i)" />是透射率。因此我们创建一个两者综合作用的</p>
+<pre><code class="language-c++">class FresnelSpecular : public BxDF {
+public:
+    FresnelSpecular(const Spectrum&amp; R, const Spectrum&amp; T, Float etaA,
+        Float etaB, TransportMode mode)
+        : BxDF(BxDFType(BSDF_REFLECTION | BSDF_TRANSMISSION | BSDF_SPECULAR)),
+        _R(R),
+        _T(T),
+        _etaA(etaA),
+        _etaB(etaB),
+        _mode(mode) { }
+
+    virtual Spectrum f(const Vector3f&amp; wo, const Vector3f&amp; wi) const {
+        return Spectrum(0.f);
+    }
+
+    virtual Spectrum sample_f(const Vector3f&amp; wo, Vector3f* wi, const Point2f&amp; u,
+        Float* pdf, BxDFType* sampledType) const {
+        Float F = frDielectric(cosTheta(wo), _etaA, _etaB);
+        if (u[0] &lt; F) {
+            *wi = Vector3f(-wo.x, -wo.y, wo.z);
+            if (sampledType)
+                *sampledType = BxDFType(BSDF_SPECULAR | BSDF_REFLECTION);
+            *pdf = F;
+            return F * _R / absCosTheta(*wi);
+        }
+        else {
+            bool entering = cosTheta(wo) &gt; 0;
+            Float etaI = entering ? _etaA : _etaB;
+            Float etaT = entering ? _etaB : _etaA;
+
+            if (!refract(wo, faceforward(Normal3f(0, 0, 1), wo), etaI / etaT, wi))
+                return 0;
+            Spectrum ft = _T * (1 - F);
+
+            if (_mode == TransportMode::Radiance) {
+                ft *= (etaI * etaI) / (etaT * etaT);
+            }
+            if (sampledType) {
+                *sampledType = BxDFType(BSDF_SPECULAR | BSDF_TRANSMISSION);
+            }
+            *pdf = 1 - F;
+            return ft / absCosTheta(*wi);
+        }
+    }
+
+    virtual Float pdfW(const Vector3f&amp; wo, const Vector3f&amp; wi) const {
+        return 0;
+    }
+
+    virtual std::string toString() const {
+        return std::string(&quot;[ FresnelSpecular R: &quot;) + _R.ToString() +
+            std::string(&quot; T: &quot;) + _T.ToString() +
+            StringPrintf(&quot; etaA: %f etaB: %f &quot;, _etaA, _etaB) +
+            std::string(&quot; mode : &quot;) +
+            (_mode == TransportMode::Radiance ? std::string(&quot;RADIANCE&quot;)
+                : std::string(&quot;IMPORTANCE&quot;)) +
+            std::string(&quot; ]&quot;);
+    }
+private:
+    const Spectrum _R, _T;
+    const Float _etaA, _etaB;
+    const TransportMode _mode;
+};
+</code></pre>
+						</div>
+					</div>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>
