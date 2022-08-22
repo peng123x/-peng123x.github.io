@@ -2,7 +2,7 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-<title>Contact</title>
+<title>Login</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <link href="css/style.css" rel="stylesheet" type="text/css" media="all" />
@@ -12,10 +12,11 @@
 <link href="css/megamenu.css" rel="stylesheet" type="text/css" media="all" />
 <script type="text/javascript" src="js/megamenu.js"></script>
 <script>$(document).ready(function(){$(".megamenu").megamenu();});</script>
+<!-- dropdown -->
 <script src="js/jquery.easydropdown.js"></script>
 </head>
 <body>
-       <div class="header-top">
+    <div class="header-top">
 			<div class="wrap"> 
 			  <div class="header-top-left">
 			  	   <div class="box">
@@ -168,33 +169,45 @@
      <div class="clear"></div>
      </div>
 	</div>
-    <div class="login">
-       <div class="wrap">
-	    <ul class="breadcrumb breadcrumb__t"><a class="home" href="#">Home</a>  / Contact</ul>
-		   <div class="content-top">
-			   <form method="post" action="contact-post.html">
-					<div class="to">
-                     	<input type="text" class="text" value="Name" onfocus="this.value = '';" onblur="if (this.value == '') {this.value = 'Name';}">
-					 	<input type="text" class="text" value="Email" onfocus="this.value = '';" onblur="if (this.value == '') {this.value = 'Email';}" style="margin-left: 10px">
-					</div>
-					<div class="to">
-                     	<input type="text" class="text" value="Your Website" onfocus="this.value = '';" onblur="if (this.value == '') {this.value = 'Your Website';}">
-					 	<input type="text" class="text" value="Subject" onfocus="this.value = '';" onblur="if (this.value == '') {this.value = 'Subject';}" style="margin-left: 10px">
-					</div>
-					<div class="text">
-	                   <textarea value="Message:" onfocus="this.value = '';" onblur="if (this.value == '') {this.value = 'Message';}">Message:</textarea>
-	                </div>
-	                <div class="submit">
-	               		<input type="submit" value="Submit">
-	                </div>
-               </form>
-                <div class="map">
-					<iframe width="100%" height="175" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="https://maps.google.co.in/maps?f=q&amp;source=s_q&amp;hl=en&amp;geocode=&amp;q=Lighthouse+Point,+FL,+United+States&amp;aq=4&amp;oq=light&amp;sll=26.275636,-80.087265&amp;sspn=0.04941,0.104628&amp;ie=UTF8&amp;hq=&amp;hnear=Lighthouse+Point,+Broward,+Florida,+United+States&amp;t=m&amp;z=14&amp;ll=26.275636,-80.087265&amp;output=embed"></iframe><br><small><a href="https://maps.google.co.in/maps?f=q&amp;source=embed&amp;hl=en&amp;geocode=&amp;q=Lighthouse+Point,+FL,+United+States&amp;aq=4&amp;oq=light&amp;sll=26.275636,-80.087265&amp;sspn=0.04941,0.104628&amp;ie=UTF8&amp;hq=&amp;hnear=Lighthouse+Point,+Broward,+Florida,+United+States&amp;t=m&amp;z=14&amp;ll=26.275636,-80.087265" style="color:#666;text-align:left;font-size:12px">View Larger Map</a></small>
+        <div class="login">
+          	<div class="wrap">
+				<div class="col_1_of_login span_1_of_login">
+					<h4 class="title">New Customers</h4>
+					<p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat. Duis autem vel eum iriure dolor in hendrerit in vulputate velit esse molestie consequat, vel illum dolore eu feugiat nulla facilisis at vero eros et accumsan</p>
+					<div class="button1">
+					   <a href="register.html"><input type="submit" name="Submit" value="Create an Account"></a>
+					 </div>
+					 <div class="clear"></div>
 				</div>
-            </div>
-       </div> 
-    </div>
-    <div class="footer">
+				<div class="col_1_of_login span_1_of_login">
+				<div class="login-title">
+	           		<h4 class="title">Registered Customers</h4>
+					<div id="loginbox" class="loginbox">
+						<form action="" method="post" name="login" id="login-form">
+						  <fieldset class="input">
+						    <p id="login-form-username">
+						      <label for="modlgn_username">Email</label>
+						      <input id="modlgn_username" type="text" name="email" class="inputbox" size="18" autocomplete="off">
+						    </p>
+						    <p id="login-form-password">
+						      <label for="modlgn_passwd">Password</label>
+						      <input id="modlgn_passwd" type="password" name="password" class="inputbox" size="18" autocomplete="off">
+						    </p>
+						    <div class="remember">
+							    <p id="login-form-remember">
+							      <label for="modlgn_remember"><a href="#">Forget Your Password ? </a></label>
+							   </p>
+							    <input type="submit" name="Submit" class="button" value="Login"><div class="clear"></div>
+							 </div>
+						  </fieldset>
+						 </form>
+					</div>
+			    </div>
+				</div>
+				<div class="clear"></div>
+			</div>
+		</div>
+     <div class="footer">
 		<div class="footer-top">
 			<div class="wrap">
 			  <div class="section group example">
@@ -212,9 +225,9 @@
 		      </div>
 			</div>
 		</div>
-        <div class="footer-middle">
+		<div class="footer-middle">
 			<div class="wrap">
-			  <div class="section group example">
+			 <div class="section group example">
 			  <div class="col_1_of_f_1 span_1_of_f_1">
 				 <div class="section group example">
 				   <div class="col_1_of_f_2 span_1_of_f_2">
@@ -296,17 +309,17 @@
 		</div>
 		<div class="footer-bottom">
 			<div class="wrap">
-				<div class="copy">
-			        <p>Copyright &copy; 2014.Company name All rights reserved.<a target="_blank" href="https://www.webmoban.net">&#x7F51;&#x9875;&#x6A21;&#x677F;</a></p>
+	            <div class="copy">
+			           <p>Copyright &copy; 2014.Company name All rights reserved.<a target="_blank" href="https://www.webmoban.net">&#x7F51;&#x9875;&#x6A21;&#x677F;</a></p>
 		        </div>
-				<div class="f-list2">
+			  <div class="f-list2">
 				<ul>
 					<li class="active"><a href="about.html">About Us</a></li> |
 					<li><a href="delivery.html">Delivery & Returns</a></li> |
 					<li><a href="delivery.html">Terms & Conditions</a></li> |
-					<li><a href="#">Contact Us</a></li> 
+					<li><a href="contact.html">Contact Us</a></li> 
 				</ul>
-				</div>
+			  </div>
 				<div class="clear"></div>
 		      </div>
 			</div>
